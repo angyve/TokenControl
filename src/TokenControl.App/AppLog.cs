@@ -19,7 +19,7 @@ internal static class AppLog
             lines.Add($"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} {message}");
             File.WriteAllLines(LogPath, lines.Skip(Math.Max(0, lines.Count - MaxLines)));
         }
-        catch (IOException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // Logging must never take the app down.
         }
