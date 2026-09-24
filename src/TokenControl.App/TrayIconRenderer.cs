@@ -11,7 +11,7 @@ internal static class TrayIconRenderer
     /// <summary>Icon for windows (login form).</summary>
     public static Icon AppIcon() => Load(SystemInformation.IconSize);
 
-    private static Icon Load(Size size)
+    public static Icon Load(Size size)
     {
         using var stream = typeof(TrayIconRenderer).Assembly.GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException($"Missing embedded resource {ResourceName}");

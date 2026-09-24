@@ -24,6 +24,7 @@ internal sealed class Popup : Form
     private readonly List<(Rectangle Rect, Hit Hit)> _hits = [];
     private Theme _theme = Theme.Current();
     private Fonts? _fonts;
+    private Bitmap? _logo;
     private float _scale = 1;
     private Hit _hover;
     private ContextMenuStrip? _menu;
@@ -131,6 +132,9 @@ internal sealed class Popup : Form
         _scale = scale;
         _fonts?.Dispose();
         _fonts = new Fonts(scale);
+        _logo?.Dispose();
+        using (var icon = TrayIconRenderer.Load(new Size(S(26), S(26))))
+            _logo = icon.ToBitmap();
     }
 
     private int S(float logical) => (int)Math.Round(logical * _scale);
@@ -159,7 +163,11 @@ internal sealed class Popup : Form
 
         // Header: app name + settings/refresh buttons.
         var headerH = S(50);
-        DrawText(g, "TokenControl", f.Title, _theme.Text, new Rectangle(pad, 0, inner, headerH), TextFormatFlags.VerticalCenter);
+        var logo = S(26);
+        if (_logo is not null)
+            g.DrawImage(_logo, new Rectangle(pad, (headerH - logo) / 2, logo, logo));
+        var titleX = pad + logo + S(10);
+        DrawText(g, "TokenControl", f.Title, _theme.Text, new Rectangle(titleX, 0, inner - (titleX - pad), headerH), TextFormatFlags.VerticalCenter);
         var btn = S(32);
         var refresh = new Rectangle(width - pad + S(7) - btn, (headerH - btn) / 2, btn, btn);
         var settings = refresh with { X = refresh.X - btn - S(2) };
@@ -430,6 +438,7 @@ internal sealed class Popup : Form
             _tick.Dispose();
             _menu?.Dispose();
             _fonts?.Dispose();
+            _logo?.Dispose();
         }
         base.Dispose(disposing);
     }
