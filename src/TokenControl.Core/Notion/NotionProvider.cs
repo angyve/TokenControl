@@ -58,18 +58,25 @@ public sealed class NotionProvider(HttpClient http, NotionSessionStore store) : 
     {
         var windows = new List<UsageWindow>();
         if (usage.Rolling is { } r)
-            windows.Add(new("rolling", RollingTitle(usage.RollingWindowLabel), r.Used, r.Limit, r.ResetsAt));
+            windows.Add(new("rolling", RollingTitle(usage.RollingWindowLabel), r.Used, r.Limit, r.ResetsAt,
+                Period: RollingHours(usage.RollingWindowLabel) is { } h ? TimeSpan.FromHours(h) : null));
         if (usage.Monthly is { } m)
-            windows.Add(new("monthly", "Mes", m.Used, m.Limit, m.ResetsAt));
+            windows.Add(new("monthly", "Mensual", m.Used, m.Limit, m.ResetsAt, Period: BillingPeriod(m)));
         if (usage.MonthlyCredits is { } c)
-            windows.Add(new("credits", "Créditos premium", c.Used, c.Limit, c.ResetsAt, ShowInIcon: false));
+            windows.Add(new("credits", "Créditos premium", c.Used, c.Limit, c.ResetsAt, ShowInIcon: false, Period: BillingPeriod(c)));
 
         var plan = CultureInfo.GetCultureInfo("es-MX").TextInfo.ToTitleCase(workspace.TierLabel);
-        return new UsageSnapshot("Notion AI", email ?? workspace.Name, $"{workspace.Name} · {plan}", windows, Note: null, DateTimeOffset.Now);
+        return new UsageSnapshot("Notion AI", email ?? workspace.Name, plan, windows, Note: null, DateTimeOffset.Now, workspace.Name);
     }
 
     private static string RollingTitle(string? label) =>
-        label is { Length: > 1 } && label.EndsWith('h') && int.TryParse(label[..^1], out var h)
-            ? $"{h} horas"
-            : "Ventana corta";
+        RollingHours(label) is { } h ? $"{h} horas" : "Ventana corta";
+
+    private static int? RollingHours(string? label) =>
+        label is { Length: > 1 } && label.EndsWith('h') && int.TryParse(label[..^1], out var h) && h > 0 ? h : null;
+
+    /// <summary>Notion sometimes omits the period start; billing periods are monthly, so infer it.</summary>
+    private static TimeSpan? BillingPeriod(UsageMeter meter) => meter.ResetsAt is { } end
+        ? end - (meter.StartsAt ?? end.AddMonths(-1))
+        : null;
 }

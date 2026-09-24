@@ -1,5 +1,4 @@
-using System.Reflection;
-using TokenControl.Core.Notion;
+﻿using TokenControl.Core.Notion;
 using TokenControl.Core.Usage;
 
 namespace TokenControl.App;
@@ -11,7 +10,7 @@ internal sealed class TrayContext : ApplicationContext
     private readonly NotionSessionStore _store = NotionSessionStore.ForCurrentUser();
     private readonly IUsageProvider _provider;
     private readonly NotifyIcon _tray;
-    private readonly ContextMenuStrip _menu = new();
+    private readonly Popup _popup = new();
     private readonly CancellationTokenSource _cts = new();
 
     private UsageSnapshot? _snapshot;
@@ -20,19 +19,19 @@ internal sealed class TrayContext : ApplicationContext
     private LoginForm? _login;
     private Icon? _currentIcon;
     private bool _refreshing;
+    private bool _showOnStart = Environment.GetCommandLineArgs().Contains("--show");
 
     public TrayContext()
     {
         _provider = new NotionProvider(_http, _store);
-        _tray = new NotifyIcon { ContextMenuStrip = _menu, Visible = true };
-        _tray.MouseUp += (_, e) =>
-        {
-            // NotifyIcon only opens the menu on right-click; open it on left-click too.
-            if (e.Button == MouseButtons.Left)
-                typeof(NotifyIcon).GetMethod("ShowContextMenu", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(_tray, null);
-        };
-        _tray.BalloonTipClicked += (_, _) => { if (_lastResult is FetchResult.SignedOut) ShowLogin(); };
-        _menu.Opening += (_, _) => RebuildMenu();
+        _tray = new NotifyIcon { Visible = true };
+        _tray.MouseUp += (_, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) TogglePopup(); };
+        _tray.BalloonTipClicked += (_, _) => { if (_lastResult is FetchResult.SignedOut) ShowLogin(); else TogglePopup(); };
+
+        _popup.RefreshRequested += RefreshSoon;
+        _popup.SignInRequested += ShowLogin;
+        _popup.SignOutRequested += SignOut;
+        _popup.QuitRequested += ExitThread;
 
         AppLog.Write($"started {Application.ProductVersion}");
         UpdateTray();
@@ -40,11 +39,20 @@ internal sealed class TrayContext : ApplicationContext
         _ = RunLoopAsync();
     }
 
+    private void TogglePopup()
+    {
+        if (_popup.Visible) _popup.HidePopup();
+        // Clicking the icon deactivates (and so hides) the popup before this click arrives.
+        else if (!_popup.JustHidden) _popup.ShowNearTray();
+    }
+
     private async Task RunLoopAsync()
     {
         while (!_cts.IsCancellationRequested)
         {
             var delay = await RefreshAsync();
+            // Development aid: open the popup right away so it can be inspected without clicking the tray.
+            if (_showOnStart) { _showOnStart = false; _popup.ShowNearTray(); }
             _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
             await Task.WhenAny(Task.Delay(delay, _cts.Token), _wake.Task);
         }
@@ -56,6 +64,7 @@ internal sealed class TrayContext : ApplicationContext
     {
         if (_refreshing) return PollPolicy.Normal;
         _refreshing = true;
+        _popup.SetState(_snapshot, _lastResult, refreshing: true);
         try
         {
             var result = await _provider.FetchAsync(_cts.Token);
@@ -104,6 +113,7 @@ internal sealed class TrayContext : ApplicationContext
         finally
         {
             _refreshing = false;
+            _popup.SetState(_snapshot, _lastResult, refreshing: false);
         }
     }
 
@@ -125,55 +135,7 @@ internal sealed class TrayContext : ApplicationContext
             _ => "TokenControl\nCargando…",
         };
         _tray.Text = tip.Length > 127 ? tip[..127] : tip;
-    }
-
-    private void RebuildMenu()
-    {
-        var now = DateTimeOffset.Now;
-        _menu.Items.Clear();
-
-        if (_snapshot is { } snap)
-        {
-            AddLabel($"Notion AI · {snap.Plan}", bold: true);
-            AddLabel(snap.Account);
-            _menu.Items.Add(new ToolStripSeparator());
-            foreach (var w in snap.Windows)
-                AddLabel(Texts.WindowLine(w, now));
-            var stale = _lastResult is FetchResult.Failed f ? $" ({f.Message})" : "";
-            AddLabel($"Actualizado {Texts.Ago(snap.FetchedAt, now)}{stale}", dim: true);
-        }
-        else
-        {
-            AddLabel("Notion AI", bold: true);
-            AddLabel(_lastResult switch
-            {
-                FetchResult.SignedOut s => s.Message,
-                FetchResult.Failed f => f.Message,
-                _ => "Cargando…",
-            });
-        }
-
-        _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add("Actualizar ahora", null, (_, _) => RefreshSoon());
-
-        if (_lastResult is FetchResult.SignedOut)
-            _menu.Items.Add("Iniciar sesión en Notion…", null, (_, _) => ShowLogin());
-        else
-            _menu.Items.Add("Cerrar sesión de Notion", null, (_, _) => SignOut());
-
-        var startup = new ToolStripMenuItem("Iniciar con Windows") { Checked = StartupRegistration.IsEnabled, CheckOnClick = true };
-        startup.CheckedChanged += (_, _) => StartupRegistration.Set(startup.Checked);
-        _menu.Items.Add(startup);
-
-        _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add("Salir", null, (_, _) => ExitThread());
-
-        void AddLabel(string text, bool bold = false, bool dim = false)
-        {
-            var item = new ToolStripMenuItem(text) { Enabled = !dim };
-            if (bold) item.Font = new Font(item.Font, FontStyle.Bold);
-            _menu.Items.Add(item);
-        }
+        _popup.SetState(_snapshot, _lastResult, _refreshing);
     }
 
     private void ShowLogin()
@@ -226,7 +188,7 @@ internal sealed class TrayContext : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _currentIcon?.Dispose();
-        _menu.Dispose();
+        _popup.Dispose();
         _http.Dispose();
         base.ExitThreadCore();
     }

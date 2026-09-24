@@ -4,13 +4,15 @@ public enum Severity { Ok, Warning, Critical }
 
 /// <param name="Id">Stable key used to compare snapshots across polls (e.g. "rolling", "monthly").</param>
 /// <param name="ShowInIcon">Whether the tray icon draws a bar for this window.</param>
+/// <param name="Period">Full length of the window, used to judge pace; null when unknown.</param>
 public sealed record UsageWindow(
     string Id,
     string Title,
     double Used,
     double Limit,
     DateTimeOffset? ResetsAt,
-    bool ShowInIcon = true)
+    bool ShowInIcon = true,
+    TimeSpan? Period = null)
 {
     public const double WarningThreshold = 0.70;
     public const double CriticalThreshold = 0.90;
@@ -33,7 +35,8 @@ public sealed record UsageSnapshot(
     string Plan,
     IReadOnlyList<UsageWindow> Windows,
     string? Note,
-    DateTimeOffset FetchedAt)
+    DateTimeOffset FetchedAt,
+    string? Workspace = null)
 {
     public UsageWindow? Find(string id) => Windows.FirstOrDefault(w => w.Id == id);
 }

@@ -12,7 +12,7 @@ public sealed record NotionWorkspace(string Id, string Name, string? PlanType, s
         || $"{SubscriptionTier} {PlanType}".Contains("enterprise", StringComparison.OrdinalIgnoreCase);
 }
 
-public sealed record UsageMeter(double Used, double Limit, DateTimeOffset? ResetsAt)
+public sealed record UsageMeter(double Used, double Limit, DateTimeOffset? ResetsAt, DateTimeOffset? StartsAt = null)
 {
     public double Fraction => Limit > 0 ? Used / Limit : 0;
 }
@@ -79,12 +79,13 @@ public static class NotionUsageParser
         }
 
         UsageMeter? monthly = null;
-        DateTimeOffset? periodEnd = null;
+        DateTimeOffset? periodEnd = null, periodStart = null;
         if (TryGet(rate, "billingPeriodWindow", out var m))
         {
             periodEnd = Num(m, "periodEndMs") is { } end ? DateTimeOffset.FromUnixTimeMilliseconds((long)end) : null;
+            periodStart = Num(m, "periodStartMs") is { } start ? DateTimeOffset.FromUnixTimeMilliseconds((long)start) : null;
             if (Num(m, "used") is { } mu && Num(m, "limit") is { } ml)
-                monthly = new UsageMeter(mu, ml, periodEnd);
+                monthly = new UsageMeter(mu, ml, periodEnd, periodStart);
         }
 
         UsageMeter? monthlyCredits = null;
@@ -98,7 +99,7 @@ public static class NotionUsageParser
             if (TryGet(premium, "perSource", out var perSource)
                 && TryGet(perSource, "monthlyAllocated", out var alloc)
                 && Num(alloc, "usageTotal") is { } cu && Num(alloc, "limit") is { } cl)
-                monthlyCredits = new UsageMeter(cu, cl, periodEnd);
+                monthlyCredits = new UsageMeter(cu, cl, periodEnd, periodStart);
         }
 
         return new NotionUsage(Str(rate, "status"), rolling, rollingLabel, monthly, monthlyCredits, balance);
