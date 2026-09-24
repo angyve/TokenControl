@@ -17,14 +17,14 @@ internal sealed class TrayContext : ApplicationContext
     private FetchResult? _lastResult;
     private TaskCompletionSource _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private LoginForm? _login;
-    private Icon? _currentIcon;
+    private readonly Icon _icon = TrayIconRenderer.TrayIcon();
     private bool _refreshing;
     private bool _showOnStart = Environment.GetCommandLineArgs().Contains("--show");
 
     public TrayContext()
     {
         _provider = new NotionProvider(_http, _store);
-        _tray = new NotifyIcon { Visible = true };
+        _tray = new NotifyIcon { Icon = _icon, Visible = true };
         _tray.MouseUp += (_, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) TogglePopup(); };
         _tray.BalloonTipClicked += (_, _) => { if (_lastResult is FetchResult.SignedOut) ShowLogin(); else TogglePopup(); };
 
@@ -119,13 +119,6 @@ internal sealed class TrayContext : ApplicationContext
 
     private void UpdateTray()
     {
-        var bars = _snapshot?.Windows.Where(w => w.ShowInIcon).Select(w => (w.Fraction, w.Severity)).ToList();
-
-        var old = _currentIcon;
-        _currentIcon = TrayIconRenderer.Render(bars);
-        _tray.Icon = _currentIcon;
-        old?.Dispose();
-
         var tip = _lastResult switch
         {
             FetchResult.SignedOut s => $"TokenControl\n{s.Message}",
@@ -187,7 +180,7 @@ internal sealed class TrayContext : ApplicationContext
         _login?.Close();
         _tray.Visible = false;
         _tray.Dispose();
-        _currentIcon?.Dispose();
+        _icon.Dispose();
         _popup.Dispose();
         _http.Dispose();
         base.ExitThreadCore();

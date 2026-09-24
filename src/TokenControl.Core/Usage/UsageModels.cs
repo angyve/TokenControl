@@ -3,7 +3,7 @@ namespace TokenControl.Core.Usage;
 public enum Severity { Ok, Warning, Critical }
 
 /// <param name="Id">Stable key used to compare snapshots across polls (e.g. "rolling", "monthly").</param>
-/// <param name="ShowInIcon">Whether the tray icon draws a bar for this window.</param>
+/// <param name="ShowInIcon">Whether the tray tooltip lists this window.</param>
 /// <param name="Period">Full length of the window, used to judge pace; null when unknown.</param>
 public sealed record UsageWindow(
     string Id,
