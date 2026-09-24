@@ -7,6 +7,8 @@ __pycache__/
 # Build output
 dist/
 build/
+bin/
+obj/
 *.log
 
 # Environment / secrets

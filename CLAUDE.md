@@ -37,7 +37,8 @@ y avisa cuando se acaba o se reinicia. Investigación completa en [docs/RESEARCH
 - **Nunca** escribas `token_v2` (ni la clave AES) en logs, archivos, commits ni salida de consola.
   Si hace falta depurar, muestra solo longitud o los primeros 4 caracteres.
 - Abre la base de cookies en modo solo lectura (o copia a un temporal): Notion puede tenerla bloqueada.
-- Solo se hacen peticiones a `app.notion.com`. No envíes datos a ningún otro servicio.
+- Solo se hacen peticiones a Notion (`app.notion.com` o `www.notion.so`, según el dominio de la
+  cookie; la app de escritorio de este equipo usa `www.notion.so`). No envíes datos a ningún otro servicio.
 
 ## Código
 
@@ -50,3 +51,8 @@ y avisa cuando se acaba o se reinicia. Investigación completa en [docs/RESEARCH
 
 - Rama `main`, remoto `origin` (https://github.com/angyve/TokenControl.git).
 - Commits pequeños y descriptivos (en inglés). Haz push cuando un hito funcione y esté verificado.
+
+## Comandos
+
+- Compilar: `dotnet build` (desde la raíz; el SDK está en `C:\Program Files\dotnet`, puede no estar en el PATH).
+- Prueba de punta a punta contra Notion: `dotnet run --project tools/TokenControl.Spike [-- --raw]`.
