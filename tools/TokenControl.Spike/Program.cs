@@ -1,5 +1,7 @@
 // End-to-end check: read Notion's session cookie, call the private usage endpoints, print real numbers.
-// Usage: TokenControl.Spike [--raw]   (--raw also dumps the usage JSON responses; the token is never printed)
+// Usage: TokenControl.Spike [--raw] [--seed-store]
+//   --raw         also dump the usage JSON responses (the token is never printed)
+//   --seed-store  save the desktop session into TokenControl's own store (dev shortcut to skip the login window)
 using System.Globalization;
 using System.Text.Json;
 using TokenControl.Core.Notion;
@@ -17,6 +19,11 @@ try { session = reader.ReadSession(); }
 catch (Exception e) { return Fail($"{e.GetType().Name}: {e.Message}"); }
 if (session is null) return Fail("no token_v2 cookie — sign in to the Notion desktop app");
 Ok($"host {session.Host}, length {session.TokenV2.Length}, starts with \"{session.TokenV2[..4]}…\" → API {session.ApiBase}");
+if (args.Contains("--seed-store"))
+{
+    NotionSessionStore.ForCurrentUser().Save(session);
+    Ok("saved into TokenControl session store");
+}
 
 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
 var api = new NotionApiClient(http, session);

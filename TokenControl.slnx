@@ -1,6 +1,10 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/TokenControl.App/TokenControl.App.csproj" />
     <Project Path="src/TokenControl.Core/TokenControl.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TokenControl.Core.Tests/TokenControl.Core.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/TokenControl.Spike/TokenControl.Spike.csproj" />

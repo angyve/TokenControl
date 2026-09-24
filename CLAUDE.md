@@ -18,17 +18,22 @@ y avisa cuando se acaba o se reinicia. Investigación completa en [docs/RESEARCH
 ## Stack
 
 - **C# / .NET 10** (LTS). SDK instalado en `C:\Program Files\dotnet`. Target `net10.0-windows`.
-- Bandeja: WinForms `NotifyIcon`. Descifrado: `ProtectedData` (DPAPI) + `AesGcm` (nativos).
-- SQLite: `Microsoft.Data.Sqlite`. HTTP: `HttpClient`. Notificaciones: toasts de Windows.
-- Distribución: un solo `.exe` self-contained (`dotnet publish -r win-x64 --self-contained -p:PublishSingleFile=true`).
+- Bandeja: WinForms `NotifyIcon`. Inicio de sesión: WebView2 (`Microsoft.Web.WebView2`).
+- Cifrado: `ProtectedData` (DPAPI) + `AesGcm`. HTTP: `HttpClient`. Notificaciones: globos de `NotifyIcon`
+  (Windows los muestra como toasts).
+- Distribución: un solo `.exe` self-contained y comprimido (~50 MB), perfil `win-x64`.
 - Minimiza dependencias NuGet; prefiere lo que trae .NET.
 
 ## Arquitectura
 
+- **Sesión propia:** el usuario inicia sesión en Notion dentro de TokenControl (ventana WebView2,
+  `LoginForm`); el `token_v2` se guarda cifrado con DPAPI en `%LOCALAPPDATA%\TokenControl\session.dat`.
+  No depende de Chrome ni de la app de escritorio de Notion (el usuario usa Notion en Chrome y la
+  app de escritorio bloquea su archivo de cookies mientras corre). Leer la cookie de la app de
+  escritorio solo se usa en la herramienta de desarrollo `tools/TokenControl.Spike`.
 - Interfaz `IUsageProvider` por agente. Hoy solo `NotionProvider`; Claude/Codex se agregarán
   después sin tocar el resto. Mantén la UI desacoplada de los proveedores.
 - Polling cada ~2 min; ~30 s cuando el uso pasa de ~90 % o el reset está cerca.
-- Cachea la cookie descifrada; invalida por fecha de modificación de `Cookies` / `Local State`.
 - Los endpoints de Notion son privados y pueden cambiar: parsea de forma tolerante y muestra un
   estado de error claro en la bandeja en vez de crashear.
 
@@ -36,9 +41,9 @@ y avisa cuando se acaba o se reinicia. Investigación completa en [docs/RESEARCH
 
 - **Nunca** escribas `token_v2` (ni la clave AES) en logs, archivos, commits ni salida de consola.
   Si hace falta depurar, muestra solo longitud o los primeros 4 caracteres.
-- Abre la base de cookies en modo solo lectura (o copia a un temporal): Notion puede tenerla bloqueada.
+- `activity.log` registra resultados de cada consulta; nunca tokens ni cookies.
 - Solo se hacen peticiones a Notion (`app.notion.com` o `www.notion.so`, según el dominio de la
-  cookie; la app de escritorio de este equipo usa `www.notion.so`). No envíes datos a ningún otro servicio.
+  cookie). No envíes datos a ningún otro servicio.
 
 ## Código
 
@@ -54,5 +59,12 @@ y avisa cuando se acaba o se reinicia. Investigación completa en [docs/RESEARCH
 
 ## Comandos
 
-- Compilar: `dotnet build` (desde la raíz; el SDK está en `C:\Program Files\dotnet`, puede no estar en el PATH).
-- Prueba de punta a punta contra Notion: `dotnet run --project tools/TokenControl.Spike [-- --raw]`.
+El SDK está en `C:\Program Files\dotnet` y puede no estar en el PATH.
+
+- Compilar: `dotnet build` · Tests: `dotnet test`
+- Publicar el `.exe`: `dotnet publish src/TokenControl.App -p:PublishProfile=win-x64` → `dist/TokenControl.exe`
+- Instalar en el equipo del usuario: cerrar `TokenControl.exe`, copiar a
+  `%LOCALAPPDATA%\Programs\TokenControl\` y volver a abrirlo ("Iniciar con Windows" apunta a esa ruta).
+- Diagnóstico: `%LOCALAPPDATA%\TokenControl\activity.log` (resultado de cada consulta, sin secretos).
+- Prueba contra Notion usando la sesión de la app de escritorio (requiere Notion cerrado):
+  `dotnet run --project tools/TokenControl.Spike [-- --raw] [--seed-store]`.
