@@ -22,7 +22,7 @@ internal sealed record Theme(
     public static readonly Color Green = Color.FromArgb(62, 180, 98);
     public static readonly Color Amber = Color.FromArgb(222, 150, 30);
     public static readonly Color Red = Color.FromArgb(226, 80, 72);
-    public static readonly Color NotionDot = Color.FromArgb(58, 112, 176);
+    public static readonly Color ProviderDot = Color.FromArgb(217, 119, 87);
 
     private static readonly Theme Light = new(
         IsDark: false,

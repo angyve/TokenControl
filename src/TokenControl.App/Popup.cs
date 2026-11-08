@@ -204,7 +204,7 @@ internal sealed class Popup : Form
         // Provider line: colored dot, name, plan pill.
         var rowH = S(24);
         var dot = S(9);
-        Fill(g, Theme.NotionDot, new Rectangle(pad, y + (rowH - dot) / 2, dot, dot), dot / 2);
+        Fill(g, Theme.ProviderDot, new Rectangle(pad, y + (rowH - dot) / 2, dot, dot), dot / 2);
         var nameX = pad + dot + S(9);
         DrawText(g, snap.Provider, f.Heading, _theme.Text, new Rectangle(nameX, y, inner, rowH), TextFormatFlags.VerticalCenter);
 
@@ -244,7 +244,7 @@ internal sealed class Popup : Form
             Fill(g, Color.FromArgb(_theme.IsDark ? 90 : 80, color), bar with { Width = BarWidth(inner, pace.Projected, barH) }, barH / 2);
         if (w.Fraction > 0)
             Fill(g, color, bar with { Width = BarWidth(inner, w.Fraction, barH) }, barH / 2);
-        if (pace is not null && w.Id != "credits")
+        if (pace is not null && w.Id is not ("credits" or "extra"))
         {
             var mx = pad + (int)Math.Round(inner * pace.Expected);
             var mw = Math.Max(2, S(2));
@@ -268,13 +268,13 @@ internal sealed class Popup : Form
     {
         var dot = S(9);
         var rowH = S(24);
-        Fill(g, Theme.NotionDot, new Rectangle(pad, y + (rowH - dot) / 2, dot, dot), dot / 2);
-        DrawText(g, "Notion AI", f.Heading, _theme.Text, new Rectangle(pad + dot + S(9), y, inner, rowH), TextFormatFlags.VerticalCenter);
+        Fill(g, Theme.ProviderDot, new Rectangle(pad, y + (rowH - dot) / 2, dot, dot), dot / 2);
+        DrawText(g, "Claude", f.Heading, _theme.Text, new Rectangle(pad + dot + S(9), y, inner, rowH), TextFormatFlags.VerticalCenter);
         y += rowH + S(8);
 
         var (message, action) = _result switch
         {
-            FetchResult.SignedOut s => (s.Message, "Iniciar sesión en Notion"),
+            FetchResult.SignedOut s => (s.Message, "Iniciar sesión en Claude"),
             FetchResult.Failed x => (x.Message, "Reintentar"),
             _ => ("Cargando…", null),
         };
@@ -391,9 +391,9 @@ internal sealed class Popup : Form
         _menu.Items.Add(startup);
         _menu.Items.Add(new ToolStripSeparator());
         if (_result is FetchResult.SignedOut)
-            _menu.Items.Add("Iniciar sesión en Notion…", null, (_, _) => { HidePopup(); SignInRequested?.Invoke(); });
+            _menu.Items.Add("Iniciar sesión en Claude…", null, (_, _) => { HidePopup(); SignInRequested?.Invoke(); });
         else
-            _menu.Items.Add("Cerrar sesión de Notion", null, (_, _) => SignOutRequested?.Invoke());
+            _menu.Items.Add("Cerrar sesión de Claude", null, (_, _) => SignOutRequested?.Invoke());
         foreach (ToolStripItem item in _menu.Items) item.Padding = new Padding(0, S(3), 0, S(3));
 
         _menu.Closed += (_, _) => { if (!ContainsFocus && Form.ActiveForm != this) HidePopup(); };

@@ -1,4 +1,4 @@
-﻿using TokenControl.Core.Notion;
+﻿using TokenControl.Core.Claude;
 using TokenControl.Core.Usage;
 
 namespace TokenControl.App;
@@ -7,8 +7,9 @@ namespace TokenControl.App;
 internal sealed class TrayContext : ApplicationContext
 {
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
-    private readonly NotionSessionStore _store = NotionSessionStore.ForCurrentUser();
+    private readonly ClaudeSessionStore _store = ClaudeSessionStore.ForCurrentUser();
     private readonly IUsageProvider _provider;
+    private readonly WebViewClaudeTransport _transport = new();
     private readonly NotifyIcon _tray;
     private readonly Popup _popup = new();
     private readonly CancellationTokenSource _cts = new();
@@ -23,7 +24,7 @@ internal sealed class TrayContext : ApplicationContext
 
     public TrayContext()
     {
-        _provider = new NotionProvider(_http, _store);
+        _provider = new ClaudeProvider(_transport.For, _store);
         _tray = new NotifyIcon { Icon = _icon, Visible = true };
         _tray.MouseUp += (_, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) TogglePopup(); };
         _tray.BalloonTipClicked += (_, _) => { if (_lastResult is FetchResult.SignedOut) ShowLogin(); else TogglePopup(); };
@@ -123,7 +124,7 @@ internal sealed class TrayContext : ApplicationContext
         {
             FetchResult.SignedOut s => $"TokenControl\n{s.Message}",
             FetchResult.Failed f when _snapshot is null => $"TokenControl\n{f.Message}",
-            _ when _snapshot is { } snap => "Notion AI\n" + string.Join(" · ",
+            _ when _snapshot is { } snap => snap.Provider + "\n" + string.Join(" · ",
                 snap.Windows.Where(w => w.ShowInIcon).Select(w => $"{w.Title}: {Texts.Percent(w.Fraction)}")),
             _ => "TokenControl\nCargando…",
         };
@@ -138,7 +139,7 @@ internal sealed class TrayContext : ApplicationContext
         _login = new LoginForm(ValidateAsync);
         _login.FormClosed += (_, _) =>
         {
-            AppLog.Write(_login.Session is null ? "login window closed without session" : $"login ok ({_login.Session.Host})");
+            AppLog.Write(_login.Session is null ? "login window closed without session" : "login ok");
             if (_login.Session is { } session)
             {
                 _store.Save(session);
@@ -153,15 +154,22 @@ internal sealed class TrayContext : ApplicationContext
         _login.Activate();
     }
 
-    private async Task<bool> ValidateAsync(NotionSession session)
+    private async Task<bool> ValidateAsync(ClaudeSession session)
     {
         try
         {
-            await new NotionApiClient(_http, session).GetSpacesAsync(_cts.Token);
+            await new ClaudeApiClient(new HttpClaudeTransport(_http, session)).GetOrganizationsAsync(_cts.Token);
             return true;
         }
-        catch (Exception e) when (e is NotionApiException or HttpRequestException or TaskCanceledException)
+        catch (ClaudeApiException e) when (e.Challenged)
         {
+            // The cookie itself is fine; polling will report if direct requests keep being challenged.
+            AppLog.Write("login validation challenged by Cloudflare");
+            return true;
+        }
+        catch (Exception e) when (e is ClaudeApiException or HttpRequestException or TaskCanceledException)
+        {
+            AppLog.Write($"login validation failed: {e.Message.Split(':')[0]}");
             return false;
         }
     }
@@ -169,6 +177,7 @@ internal sealed class TrayContext : ApplicationContext
     private void SignOut()
     {
         _store.Clear();
+        _transport.ClearCookies();
         _snapshot = null;
         _lastResult = new FetchResult.SignedOut("Sesión cerrada");
         UpdateTray();
@@ -183,6 +192,7 @@ internal sealed class TrayContext : ApplicationContext
         _icon.Dispose();
         _popup.Dispose();
         _http.Dispose();
+        _transport.Dispose();
         base.ExitThreadCore();
     }
 }

@@ -1,6 +1,6 @@
 namespace TokenControl.App;
 
-/// <summary>Loads the app's static icon (the Notion agent's avatar) embedded in the assembly.</summary>
+/// <summary>Loads the app's static icon embedded in the assembly.</summary>
 internal static class TrayIconRenderer
 {
     private const string ResourceName = "TokenControl.App.Assets.TokenControl.ico";

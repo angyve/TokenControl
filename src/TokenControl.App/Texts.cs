@@ -40,6 +40,7 @@ internal static class Texts
     public static string PaceCaption(UsageWindow w, UsagePace? pace, DateTimeOffset now)
     {
         if (w.Id == "credits") return $"quedan {w.Remaining.ToString("0.##", Es)} de {w.Limit.ToString("0.##", Es)}";
+        if (w.Id == "extra") return $"US$ {w.Used.ToString("0.00", Es)} de {w.Limit.ToString("0.00", Es)}";
         if (w.IsExhausted) return "agotado";
         if (pace is null) return "";
         if (pace.EmptiesAt is { } e) return "se agota en " + Duration(e - now);
@@ -58,9 +59,9 @@ internal static class Texts
         var reset = w.ResetsAt is { } r ? $" Se reinicia {When(r, now)}." : "";
         return alert.Kind switch
         {
-            AlertKind.Exhausted => ("Se acabó tu uso de Notion AI", $"Llegaste al límite de {w.Title}.{reset}"),
-            AlertKind.RunningLow => ("Te queda poco uso de Notion AI", $"{w.Title}: {Percent(w.Fraction)} usado.{reset}"),
-            _ => ("Notion AI está disponible de nuevo", $"Se reinició el límite de {w.Title}."),
+            AlertKind.Exhausted => ("Se acabó tu uso de Claude", $"Llegaste al límite de {w.Title}.{reset}"),
+            AlertKind.RunningLow => ("Te queda poco uso de Claude", $"{w.Title}: {Percent(w.Fraction)} usado.{reset}"),
+            _ => ("Claude está disponible de nuevo", $"Se reinició el límite de {w.Title}."),
         };
     }
 }
